@@ -245,16 +245,20 @@ end
 ------------------------------------------------------------
 -- Ringliste + Vorschau
 ------------------------------------------------------------
-local POS_LABEL = { L.POS_OUTER, L.POS_MIDDLE, L.POS_INNER }
+local NUM_RINGS = #ns.RING_KEYS
+local function PosLabel(i)
+    local word = (i == 1 and L.POS_OUTER) or (i == NUM_RINGS and L.POS_INNER) or L.POS_MIDDLE
+    return i .. " · " .. word
+end
 
 local function BuildRingSection(parent)
-    local sec = Section(parent, L.SEC_RINGS, 616, 168)
+    local sec = Section(parent, L.SEC_RINGS, 716, 34 + NUM_RINGS * 42 + 6)
 
     local rows = {}
-    for i = 1, 3 do
+    for i = 1, NUM_RINGS do
         local row = CreateFrame("Frame", nil, sec)
         row.key = ns.cdb.order[i]
-        row:SetSize(430, 38)
+        row:SetSize(530, 38)
         row:SetPoint("TOPLEFT", 12, -34 - (i - 1) * 42)
 
         local bg = row:CreateTexture(nil, "BACKGROUND")
@@ -263,12 +267,12 @@ local function BuildRingSection(parent)
 
         local pos = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         pos:SetPoint("LEFT", 8, 0)
-        pos:SetWidth(62); pos:SetJustifyH("LEFT")
-        pos:SetText(POS_LABEL[i])
+        pos:SetWidth(88); pos:SetJustifyH("LEFT")
+        pos:SetText(PosLabel(i))
 
         local iconBorder = row:CreateTexture(nil, "ARTWORK")
         iconBorder:SetSize(32, 32)
-        iconBorder:SetPoint("LEFT", 72, 0)
+        iconBorder:SetPoint("LEFT", 96, 0)
         iconBorder:SetColorTexture(0, 0, 0, 1)
         local icon = row:CreateTexture(nil, "OVERLAY")
         icon:SetPoint("TOPLEFT", iconBorder, 1, -1)
@@ -277,15 +281,23 @@ local function BuildRingSection(parent)
 
         local name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         name:SetPoint("LEFT", iconBorder, "RIGHT", 10, 0)
-        name:SetWidth(104); name:SetJustifyH("LEFT")
+        name:SetWidth(90); name:SetJustifyH("LEFT")
 
         local sw = Swatch(row, function() return ns.db.colors[row.key] end)
-        sw:SetPoint("LEFT", 222, 0)
+        sw:SetPoint("LEFT", 236, 0)
 
-        local cb = Check(row, L.SHOW, 252, -7,
+        local cb = Check(row, L.SHOW, 264, -7,
             function() return ns.cdb.show[row.key] end,
             function(v) ns.cdb.show[row.key] = v end,
             L.SHOW_TIP)
+
+        -- Rahmen an/aus + Rahmenfarbe
+        local bcb = Check(row, L.BORDER, 362, -7,
+            function() return ns.db.border[row.key] end,
+            function(v) ns.db.border[row.key] = v end,
+            L.BORDER_TIP)
+        local bsw = Swatch(row, function() return ns.db.borderColors[row.key] end)
+        bsw:SetPoint("LEFT", 446, 0)
 
         local up = ArrowButton(row, "Up", function()
             ns.MoveRing(i, -1); Apply(); ns.RefreshOptions()
@@ -307,8 +319,9 @@ local function BuildRingSection(parent)
             icon:SetDesaturated(not shown)
             icon:SetAlpha(shown and 1 or 0.5)
             up:SetEnabled(i > 1)
-            down:SetEnabled(i < 3)
-            sw.Refresh(); cb.Refresh()
+            down:SetEnabled(i < NUM_RINGS)
+            sw.Refresh(); cb.Refresh(); bcb.Refresh(); bsw.Refresh()
+            bsw:SetAlpha(ns.db.border[row.key] and 1 or 0.35)
         end
         rows[i] = Register(row)
     end
@@ -323,32 +336,37 @@ local function BuildRingSection(parent)
     pvBg:SetVertexColor(0, 0, 0, 0)
     local pvRings = {}
     for _, key in ipairs(ns.RING_KEYS) do
-        local bgT = pv:CreateTexture(nil, "BORDER")
-        bgT:SetPoint("CENTER")
-        local t = pv:CreateTexture(nil, "ARTWORK")
-        t:SetPoint("CENTER")
-        pvRings[key] = { bg = bgT, fg = t }
+        local p = {}
+        p.bg = pv:CreateTexture(nil, "BORDER")
+        p.fg = pv:CreateTexture(nil, "ARTWORK", nil, 0)
+        p.sh = pv:CreateTexture(nil, "ARTWORK", nil, 3)
+        p.br = pv:CreateTexture(nil, "OVERLAY")
+        for _, t in pairs(p) do t:SetPoint("CENTER") end
+        pvRings[key] = p
     end
     local pvLabel = sec:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     pvLabel:SetPoint("TOP", pv, "BOTTOM", 0, -4)
     pvLabel:SetText(L.PREVIEW_LABEL)
 
     function ns.RefreshPreview()
-        local tex = ns.TEXTURES[ns.db.thickness] or ns.TEXTURES.normal
-        local scales = ns.RingScales()
-        local bgc = ns.db.colors.Bg
+        local db = ns.db
+        local tex = ns.TEXTURES[db.thickness] or ns.TEXTURES.normal
+        local btex = ns.BORDER_TEXTURES[db.thickness] or ns.BORDER_TEXTURES.normal
+        local stex = ns.SHADOW_TEXTURES[db.thickness] or ns.SHADOW_TEXTURES.normal
+        local sizes = ns.ComputeSizes(110, db.gap * 110 / db.size)
+        local bgc = db.colors.Bg
         for key, p in pairs(pvRings) do
-            local sc = scales[key]
-            if sc then
-                local s = 120 * sc
-                local c = ns.db.colors[key]
-                p.bg:SetTexture(tex); p.bg:SetSize(s, s)
-                p.bg:SetVertexColor(bgc.r, bgc.g, bgc.b, bgc.a)
-                p.fg:SetTexture(tex); p.fg:SetSize(s, s)
-                p.fg:SetVertexColor(c.r, c.g, c.b, c.a)
-                p.bg:Show(); p.fg:Show()
+            local s = sizes[key]
+            if s then
+                local c, bc = db.colors[key], db.borderColors[key]
+                p.bg:SetTexture(tex); p.bg:SetVertexColor(bgc.r, bgc.g, bgc.b, bgc.a)
+                p.fg:SetTexture(tex); p.fg:SetVertexColor(c.r, c.g, c.b, c.a)
+                p.sh:SetTexture(stex)
+                p.br:SetTexture(btex); p.br:SetVertexColor(bc.r, bc.g, bc.b, bc.a)
+                for _, t in pairs(p) do t:SetSize(s, s); t:Show() end
+                if not db.border[key] then p.sh:Hide(); p.br:Hide() end
             else
-                p.bg:Hide(); p.fg:Hide()
+                for _, t in pairs(p) do t:Hide() end
             end
         end
     end
@@ -365,7 +383,7 @@ local function Build()
         f = CreateFrame("Frame", "WeaponCursorSwingTimerOptions", UIParent, "BasicFrameTemplateWithInset")
     end
     frame = f
-    f:SetSize(648, 560)
+    f:SetSize(748, 560 + (NUM_RINGS - 3) * 42)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     f:SetToplevel(true)
@@ -396,16 +414,16 @@ local function Build()
     rs:SetPoint("TOPLEFT", 16, -58)
 
     -- Darstellung
-    local look = Section(f, L.SEC_LOOK, 300, 282)
+    local look = Section(f, L.SEC_LOOK, 354, 282)
     look:SetPoint("TOPLEFT", rs, "BOTTOMLEFT", 0, -8)
     Slider(look, L.SIZE,     "size",    20, 300, 1,      16, -36,  "%d px", L.SIZE_TIP)
-    Slider(look, L.SPACING,  "spacing", 0.10, 0.40, 0.01, 16, -82,  "%.2f", L.SPACING_TIP)
+    Slider(look, L.SPACING,  "gap",     0, 20, 1,        16, -82,  "%d px", L.SPACING_TIP)
     Slider(look, L.ALPHA,    "alpha",   0.1, 1, 0.05,    16, -128, "%.2f")
     Slider(look, L.OFFSET_X, "offsetX", -200, 200, 1,    16, -174, "%d", L.OFFSET_X_TIP)
     Slider(look, L.OFFSET_Y, "offsetY", -200, 200, 1,    16, -220, "%d", L.OFFSET_Y_TIP)
 
     -- Allgemein
-    local gen = Section(f, L.SEC_GENERAL, 308, 282)
+    local gen = Section(f, L.SEC_GENERAL, 354, 282)
     gen:SetPoint("TOPLEFT", look, "TOPRIGHT", 8, 0)
 
     local th = gen:CreateFontString(nil, "ARTWORK", "GameFontHighlight")

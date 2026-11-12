@@ -14,6 +14,22 @@ ns.TEXTURES = {
     normal = PATH .. "Ring",
     thick  = PATH .. "Ring_thick",
 }
+ns.BORDER_TEXTURES = {
+    thin   = PATH .. "Border_thin",
+    normal = PATH .. "Border_normal",
+    thick  = PATH .. "Border_thick",
+}
+ns.SHADOW_TEXTURES = {
+    thin   = PATH .. "Shadow_thin",
+    normal = PATH .. "Shadow_normal",
+    thick  = PATH .. "Shadow_thick",
+}
+
+-- Geometrie der Texturen (256er Raster, Radius 128 = Rand der Textur)
+--   Farbband:  RI .. RO
+--   Rahmen:    RO .. RO+RIM (aussen) und RI-RIM .. RI (innen)
+local GEO_RO, GEO_RIM = 115, 12
+local GEO_RI = { thin = 101, normal = 91, thick = 71 }
 
 ns.ARROW_TEXTURE = PATH .. "Arrow"
 
@@ -23,13 +39,14 @@ ns.RING_INFO = {
     Main   = { name = L.RING_MAIN,    slot = 16, icon = 132400 },
     Off    = { name = L.RING_OFF,     slot = 17, icon = "Interface\\Icons\\INV_Shield_04" },
     Ranged = { name = L.RING_RANGED,  slot = 18, icon = "Interface\\Icons\\INV_Weapon_Bow_07" },
+    Cast   = { name = L.RING_CAST,                icon = "Interface\\Icons\\Spell_Nature_Lightning" },
 }
-ns.RING_KEYS = { "Main", "Off", "Ranged" }
+ns.RING_KEYS = { "Main", "Off", "Ranged", "Cast" }
 
 -- Account-weite Einstellungen
 ns.defaults = {
     size       = 56,
-    spacing    = 0.26,
+    gap        = 2,      -- Abstand zwischen den Ringen in Pixel
     thickness  = "normal",
     offsetX    = 0,
     offsetY    = 0,
@@ -41,8 +58,17 @@ ns.defaults = {
         Main   = { r = 1.00, g = 0.82, b = 0.20, a = 1.0 },
         Off    = { r = 0.40, g = 0.75, b = 1.00, a = 1.0 },
         Ranged = { r = 0.75, g = 1.00, b = 0.40, a = 1.0 },
+        Cast   = { r = 0.78, g = 0.55, b = 1.00, a = 1.0 },
         Ready  = { r = 0.25, g = 1.00, b = 0.35, a = 0.9 },
         Bg     = { r = 0.00, g = 0.00, b = 0.00, a = 0.55 },
+    },
+    -- Rahmen pro Ring (standardmaessig aus) und Rahmenfarbe pro Ring
+    border = { Main = false, Off = false, Ranged = false, Cast = false },
+    borderColors = {
+        Main   = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
+        Off    = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
+        Ranged = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
+        Cast   = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
     },
 }
 
@@ -50,15 +76,15 @@ ns.defaults = {
 function ns.ClassDefaultOrder()
     local _, class = UnitClass("player")
     if class == "HUNTER" then
-        return { "Ranged", "Main", "Off" }
+        return { "Ranged", "Main", "Off", "Cast" }
     end
-    return { "Main", "Off", "Ranged" }
+    return { "Main", "Off", "Ranged", "Cast" }
 end
 
 local function CharDefaults()
     return {
         order = ns.ClassDefaultOrder(),
-        show  = { Main = true, Off = true, Ranged = true },
+        show  = { Main = true, Off = true, Ranged = true, Cast = false }, -- Cast-Ring standardmaessig aus
     }
 end
 
@@ -92,14 +118,20 @@ local function CopyDefaults(src, dst)
     end
 end
 
-local function ValidOrder(order)
-    if type(order) ~= "table" or #order ~= 3 then return false end
-    local seen = {}
-    for _, k in ipairs(order) do
-        if not ns.RING_INFO[k] or seen[k] then return false end
-        seen[k] = true
+-- Reihenfolge bereinigen: unbekannte/doppelte Eintraege raus, neue Ringe hinten anhaengen
+local function NormalizeOrder(order)
+    local out, seen = {}, {}
+    if type(order) == "table" then
+        for _, k in ipairs(order) do
+            if ns.RING_INFO[k] and not seen[k] then
+                out[#out + 1] = k; seen[k] = true
+            end
+        end
     end
-    return true
+    for _, k in ipairs(ns.ClassDefaultOrder()) do
+        if not seen[k] then out[#out + 1] = k; seen[k] = true end
+    end
+    return out
 end
 
 function ns.ResetDB()
@@ -120,17 +152,30 @@ function ns.MoveRing(index, delta)
     o[index], o[j] = o[j], o[index]
 end
 
--- Liefert fuer jeden Key den Skalierungsfaktor (1 = aussen).
--- Ausgeblendete Ringe werden uebersprungen, die anderen ruecken nach aussen.
-function ns.RingScales()
-    local scales, idx = {}, 0
+-- Berechnet die Framegroesse jedes sichtbaren Rings (von aussen nach innen).
+-- total = sichtbarer Durchmesser des aeussersten Rings, gap = Abstand in Pixel.
+-- Ringe mit Rahmen sind breiter, die naechsten ruecken automatisch weiter nach innen.
+-- Ausgeblendete Ringe werden uebersprungen.
+function ns.ComputeSizes(total, gap)
+    local ri = GEO_RI[db.thickness] or GEO_RI.normal
+    local sizes, prevInner = {}, nil
     for _, key in ipairs(cdb.order) do
         if cdb.show[key] then
-            scales[key] = math.max(0.1, 1 - idx * db.spacing)
-            idx = idx + 1
+            local b = db.border[key]
+            local outerF = (b and (GEO_RO + GEO_RIM) or GEO_RO) / 128
+            local innerF = (b and (ri - GEO_RIM) or ri) / 128
+            local s
+            if prevInner == nil then
+                s = total / outerF
+            else
+                s = 2 * (prevInner - gap) / outerF
+            end
+            s = math.max(s, 6)
+            sizes[key] = s
+            prevInner = s / 2 * innerF
         end
     end
-    return scales
+    return sizes
 end
 
 ------------------------------------------------------------
@@ -156,9 +201,25 @@ local function CreateRing(key)
     cd:SetDrawBling(false)
     if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(true) end
     cd:SetScript("OnCooldownDone", function()
-        if db.showReady then r.ready:Show() end
+        if key == "Cast" then
+            -- Zauber fertig: Ring verschwindet (ausser in der Vorschau)
+            if not ns.preview then r.active = false; ns.UpdateVisibility() end
+        elseif db.showReady then
+            r.ready:Show()
+        end
     end)
     r.cd = cd
+
+    -- Schatten + Rahmen liegen ueber der Farbe
+    local ov = CreateFrame("Frame", nil, r)
+    ov:SetAllPoints()
+    ov:SetFrameLevel(cd:GetFrameLevel() + 2)
+    ov:EnableMouse(false)
+    r.shadow = ov:CreateTexture(nil, "ARTWORK", nil, 1)
+    r.shadow:SetAllPoints()
+    r.border = ov:CreateTexture(nil, "OVERLAY", nil, 2)
+    r.border:SetAllPoints()
+    r.ov = ov
 
     if CreateDuration then r.duration = CreateDuration() end
     r.active = false
@@ -172,10 +233,19 @@ function ns.ApplyLayout()
     holder:SetSize(db.size, db.size)
     holder:SetAlpha(db.alpha)
     local bg, rd = db.colors.Bg, db.colors.Ready
-    local scales = ns.RingScales()
+    local sizes = ns.ComputeSizes(db.size, db.gap)
+    local btex = ns.BORDER_TEXTURES[db.thickness] or ns.BORDER_TEXTURES.normal
+    local stex = ns.SHADOW_TEXTURES[db.thickness] or ns.SHADOW_TEXTURES.normal
     for key, r in pairs(rings) do
-        local s = math.floor(db.size * (scales[key] or 1) + 0.5)
+        local s = math.floor((sizes[key] or db.size) + 0.5)
         r:SetSize(s, s)
+        local hasBorder = db.border[key]
+        local bc = db.borderColors[key]
+        r.border:SetTexture(btex)
+        r.border:SetVertexColor(bc.r, bc.g, bc.b, bc.a)
+        r.shadow:SetTexture(stex)
+        r.border:SetShown(hasBorder and true or false)
+        r.shadow:SetShown(hasBorder and true or false)
         r.bg:SetTexture(tex)
         r.bg:SetVertexColor(bg.r, bg.g, bg.b, bg.a)
         r.ready:SetTexture(tex)
@@ -183,7 +253,8 @@ function ns.ApplyLayout()
         local c = db.colors[key]
         r.cd:SetSwipeTexture(tex)
         r.cd:SetSwipeColor(c.r, c.g, c.b, c.a)
-        r.cd:SetReverse(db.reverse)
+        -- Kanalisierungen laufen andersherum (sie leeren sich)
+        if r.channel then r.cd:SetReverse(not db.reverse) else r.cd:SetReverse(db.reverse) end
         if not db.showReady then r.ready:Hide() end
     end
 end
@@ -229,9 +300,66 @@ end
 local function ClearRings()
     for _, r in pairs(rings) do
         r.active = false
+        r.channel = false
         r.ready:Hide()
         r.cd:Clear()
     end
+    ns.ApplyLayout()
+end
+
+------------------------------------------------------------
+-- Cast-Ring (Zauber und Kanalisierungen des Spielers)
+------------------------------------------------------------
+local function StartCast(channel)
+    local r = rings.Cast
+    if ns.preview or not r then return end
+    r.ready:Hide()
+    r.channel = channel
+    if channel then r.cd:SetReverse(not db.reverse) else r.cd:SetReverse(db.reverse) end
+    local ok = false
+
+    -- 1) Duration-Objekt der Engine (vertraegt Secret Values)
+    local getDur = channel and UnitChannelDuration or UnitCastingDuration
+    if getDur and r.cd.SetCooldownFromDurationObject then
+        ok = pcall(function()
+            local d = getDur("player")
+            if not d then error("no duration") end
+            r.cd:SetCooldownFromDurationObject(d)
+        end)
+    end
+    -- 2) Fallback: Start-/Endzeit in Millisekunden
+    if not ok then
+        local info = channel and UnitChannelInfo or UnitCastingInfo
+        ok = pcall(function()
+            local _, _, _, startMS, endMS = info("player")
+            if not startMS then error("not casting") end
+            r.cd:SetCooldown(startMS / 1000, (endMS - startMS) / 1000)
+        end)
+    end
+
+    r.active = ok
+    ns.UpdateVisibility()
+end
+
+local function StillCasting()
+    -- FAILED kommt auch, wenn waehrend eines Casts ein anderer Zauber scheitert.
+    -- Ein Fehler hier (Secret Value) heisst: es laeuft etwas -> Ring behalten.
+    local ok, res = pcall(function()
+        local n = UnitCastingInfo("player")
+        if n == nil and UnitChannelInfo then n = UnitChannelInfo("player") end
+        return n ~= nil
+    end)
+    return (not ok) or res
+end
+
+local function StopCast()
+    local r = rings.Cast
+    if ns.preview or not r then return end
+    if StillCasting() then return end
+    r.active = false
+    r.channel = false
+    r.cd:Clear()
+    ns.UpdateVisibility()
 end
 
 ------------------------------------------------------------
@@ -248,7 +376,7 @@ end)
 -- Vorschau (laeuft solange das Optionsfenster offen ist)
 ------------------------------------------------------------
 local previewTicker
-local PREVIEW_SPEED = { Main = 2.6, Off = 1.8, Ranged = 3.0 }
+local PREVIEW_SPEED = { Main = 2.6, Off = 1.8, Ranged = 3.0, Cast = 2.0 }
 
 function ns.SetPreview(on)
     if previewTicker then previewTicker:Cancel(); previewTicker = nil end
@@ -313,9 +441,10 @@ ev:SetScript("OnEvent", function(self, event, ...)
         WeaponCursorSwingTimerDB = WeaponCursorSwingTimerDB or {}
         WeaponCursorSwingTimerCharDB = WeaponCursorSwingTimerCharDB or {}
         db, cdb = WeaponCursorSwingTimerDB, WeaponCursorSwingTimerCharDB
+        db.spacing = nil -- ersetzt durch "gap" (Pixel) in 2.3.0
         CopyDefaults(ns.defaults, db)
         CopyDefaults(CharDefaults(), cdb)
-        if not ValidOrder(cdb.order) then cdb.order = ns.ClassDefaultOrder() end
+        cdb.order = NormalizeOrder(cdb.order)
         ns.db, ns.cdb = db, cdb
 
         for _, key in ipairs(ns.RING_KEYS) do rings[key] = CreateRing(key) end
@@ -337,6 +466,14 @@ ev:SetScript("OnEvent", function(self, event, ...)
         self:RegisterEvent("PLAYER_REGEN_ENABLED")
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
         self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 
     elseif event == "PLAYER_SWING" then
         if ns.preview then return end
@@ -344,6 +481,16 @@ ev:SetScript("OnEvent", function(self, event, ...)
         if issecret(swingType) then return end
         local r = typeToRing[swingType]
         if r then StartRing(r, duration) end
+
+    elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_DELAYED" then
+        StartCast(false)
+
+    elseif event == "UNIT_SPELLCAST_CHANNEL_START" or event == "UNIT_SPELLCAST_CHANNEL_UPDATE" then
+        StartCast(true)
+
+    elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED"
+        or event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+        StopCast()
 
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
