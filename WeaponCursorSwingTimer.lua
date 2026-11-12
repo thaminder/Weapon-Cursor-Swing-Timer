@@ -14,11 +14,12 @@ ns.TEXTURES = {
     normal = PATH .. "Ring",
     thick  = PATH .. "Ring_thick",
 }
-ns.BORDER_TEXTURES = {
-    thin   = PATH .. "Border_thin",
-    normal = PATH .. "Border_normal",
-    thick  = PATH .. "Border_thick",
-}
+-- Rahmen gibt es in 5 Staerken pro Ringstaerke: Border_<staerke>_<1-5>
+function ns.BorderTexture(thickness, level)
+    if not ns.TEXTURES[thickness] then thickness = "normal" end
+    level = math.max(1, math.min(5, math.floor(level or 3)))
+    return PATH .. "Border_" .. thickness .. "_" .. level
+end
 ns.SHADOW_TEXTURES = {
     thin   = PATH .. "Shadow_thin",
     normal = PATH .. "Shadow_normal",
@@ -27,9 +28,10 @@ ns.SHADOW_TEXTURES = {
 
 -- Geometrie der Texturen (256er Raster, Radius 128 = Rand der Textur)
 --   Farbband:  RI .. RO
---   Rahmen:    RO .. RO+RIM (aussen) und RI-RIM .. RI (innen)
-local GEO_RO, GEO_RIM = 115, 12
-local GEO_RI = { thin = 101, normal = 91, thick = 71 }
+--   Rahmen:    RO .. RO+RIM (aussen) und RI-RIM .. RI (innen), RIM je nach Rahmenstaerke
+local GEO_RO = 106
+local GEO_RIMS = { 6, 9, 12, 16, 21 }
+local GEO_RI = { thin = 93, normal = 84, thick = 65 }
 
 ns.ARROW_TEXTURE = PATH .. "Arrow"
 
@@ -47,6 +49,7 @@ ns.RING_KEYS = { "Main", "Off", "Ranged", "Cast" }
 ns.defaults = {
     size       = 56,
     gap        = 2,      -- Abstand zwischen den Ringen in Pixel
+    borderSize = 3,      -- Rahmenstaerke 1-5
     thickness  = "normal",
     offsetX    = 0,
     offsetY    = 0,
@@ -65,10 +68,10 @@ ns.defaults = {
     -- Rahmen pro Ring (standardmaessig aus) und Rahmenfarbe pro Ring
     border = { Main = false, Off = false, Ranged = false, Cast = false },
     borderColors = {
-        Main   = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
-        Off    = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
-        Ranged = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
-        Cast   = { r = 0.95, g = 0.78, b = 0.45, a = 1.0 },
+        Main   = { r = 0.349, g = 0.282, b = 0.161, a = 1.0 },
+        Off    = { r = 0.349, g = 0.282, b = 0.161, a = 1.0 },
+        Ranged = { r = 0.349, g = 0.282, b = 0.161, a = 1.0 },
+        Cast   = { r = 0.349, g = 0.282, b = 0.161, a = 1.0 },
     },
 }
 
@@ -158,12 +161,13 @@ end
 -- Ausgeblendete Ringe werden uebersprungen.
 function ns.ComputeSizes(total, gap)
     local ri = GEO_RI[db.thickness] or GEO_RI.normal
+    local rim = GEO_RIMS[db.borderSize] or GEO_RIMS[3]
     local sizes, prevInner = {}, nil
     for _, key in ipairs(cdb.order) do
         if cdb.show[key] then
             local b = db.border[key]
-            local outerF = (b and (GEO_RO + GEO_RIM) or GEO_RO) / 128
-            local innerF = (b and (ri - GEO_RIM) or ri) / 128
+            local outerF = (b and (GEO_RO + rim) or GEO_RO) / 128
+            local innerF = (b and (ri - rim) or ri) / 128
             local s
             if prevInner == nil then
                 s = total / outerF
@@ -234,7 +238,7 @@ function ns.ApplyLayout()
     holder:SetAlpha(db.alpha)
     local bg, rd = db.colors.Bg, db.colors.Ready
     local sizes = ns.ComputeSizes(db.size, db.gap)
-    local btex = ns.BORDER_TEXTURES[db.thickness] or ns.BORDER_TEXTURES.normal
+    local btex = ns.BorderTexture(db.thickness, db.borderSize)
     local stex = ns.SHADOW_TEXTURES[db.thickness] or ns.SHADOW_TEXTURES.normal
     for key, r in pairs(rings) do
         local s = math.floor((sizes[key] or db.size) + 0.5)
@@ -442,6 +446,14 @@ ev:SetScript("OnEvent", function(self, event, ...)
         WeaponCursorSwingTimerCharDB = WeaponCursorSwingTimerCharDB or {}
         db, cdb = WeaponCursorSwingTimerDB, WeaponCursorSwingTimerCharDB
         db.spacing = nil -- ersetzt durch "gap" (Pixel) in 2.3.0
+        -- 2.4.0: alte goldene Standard-Rahmenfarbe auf neue Standardfarbe #594829 umstellen
+        if type(db.borderColors) == "table" then
+            for _, c in pairs(db.borderColors) do
+                if c.r == 0.95 and c.g == 0.78 and c.b == 0.45 then
+                    c.r, c.g, c.b = 0.349, 0.282, 0.161
+                end
+            end
+        end
         CopyDefaults(ns.defaults, db)
         CopyDefaults(CharDefaults(), cdb)
         cdb.order = NormalizeOrder(cdb.order)

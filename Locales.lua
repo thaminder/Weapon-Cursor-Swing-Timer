@@ -75,6 +75,8 @@ local enUS = {
     OPEN_OPTIONS  = "Open options",
     BORDER       = "Border",
     BORDER_TIP   = "Adds a metal frame with a soft shadow to this ring. Click the color box next to it to tint the frame. The rings make room for it automatically.",
+    BORDER_SIZE     = "Border thickness",
+    BORDER_SIZE_TIP = "Thickness of the ring borders (1–5). Spacing adjusts automatically.",
 }
 
 local translations = {}
@@ -143,6 +145,8 @@ translations.deDE = {
     OPEN_OPTIONS  = "Optionen öffnen",
     BORDER       = "Rahmen",
     BORDER_TIP   = "Fügt diesem Ring einen Metallrahmen mit weichem Schatten hinzu. Mit dem Farbfeld daneben färbst du den Rahmen ein. Die Ringe machen automatisch Platz.",
+    BORDER_SIZE     = "Rahmenstärke",
+    BORDER_SIZE_TIP = "Stärke der Ringrahmen (1–5). Der Abstand passt sich automatisch an.",
 }
 
 translations.frFR = {
@@ -209,6 +213,8 @@ translations.frFR = {
     OPEN_OPTIONS  = "Ouvrir les options",
     BORDER       = "Bordure",
     BORDER_TIP   = "Ajoute un cadre métallique avec une ombre douce à cet anneau. La case de couleur à côté teinte le cadre. Les anneaux s'écartent automatiquement.",
+    BORDER_SIZE     = "Épaisseur de bordure",
+    BORDER_SIZE_TIP = "Épaisseur des bordures d'anneau (1–5). L'écart s'ajuste automatiquement.",
 }
 
 translations.esES = {
@@ -275,6 +281,8 @@ translations.esES = {
     OPEN_OPTIONS  = "Abrir opciones",
     BORDER       = "Borde",
     BORDER_TIP   = "Añade un marco metálico con una sombra suave a este anillo. El cuadro de color de al lado tiñe el marco. Los anillos se separan automáticamente.",
+    BORDER_SIZE     = "Grosor del borde",
+    BORDER_SIZE_TIP = "Grosor de los bordes de los anillos (1–5). La separación se ajusta automáticamente.",
 }
 translations.esMX = translations.esES
 
@@ -342,6 +350,8 @@ translations.itIT = {
     OPEN_OPTIONS  = "Apri opzioni",
     BORDER       = "Bordo",
     BORDER_TIP   = "Aggiunge una cornice metallica con un'ombra morbida a questo anello. Il riquadro colore accanto tinge la cornice. Gli anelli si distanziano automaticamente.",
+    BORDER_SIZE     = "Spessore bordo",
+    BORDER_SIZE_TIP = "Spessore dei bordi degli anelli (1–5). La distanza si adatta automaticamente.",
 }
 
 translations.ptBR = {
@@ -408,6 +418,8 @@ translations.ptBR = {
     OPEN_OPTIONS  = "Abrir opções",
     BORDER       = "Borda",
     BORDER_TIP   = "Adiciona uma moldura metálica com sombra suave a este anel. A caixa de cor ao lado tinge a moldura. Os anéis se afastam automaticamente.",
+    BORDER_SIZE     = "Espessura da borda",
+    BORDER_SIZE_TIP = "Espessura das bordas dos anéis (1–5). O espaço se ajusta automaticamente.",
 }
 
 translations.ruRU = {
@@ -474,6 +486,8 @@ translations.ruRU = {
     OPEN_OPTIONS  = "Открыть настройки",
     BORDER       = "Рамка",
     BORDER_TIP   = "Добавляет кольцу металлическую рамку с мягкой тенью. Цветной квадрат рядом окрашивает рамку. Кольца автоматически раздвигаются.",
+    BORDER_SIZE     = "Толщина рамки",
+    BORDER_SIZE_TIP = "Толщина рамок колец (1–5). Зазор подстраивается автоматически.",
 }
 
 local L = setmetatable({}, { __index = function(_, k) return enUS[k] or k end })

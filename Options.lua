@@ -351,7 +351,7 @@ local function BuildRingSection(parent)
     function ns.RefreshPreview()
         local db = ns.db
         local tex = ns.TEXTURES[db.thickness] or ns.TEXTURES.normal
-        local btex = ns.BORDER_TEXTURES[db.thickness] or ns.BORDER_TEXTURES.normal
+        local btex = ns.BorderTexture(db.thickness, db.borderSize)
         local stex = ns.SHADOW_TEXTURES[db.thickness] or ns.SHADOW_TEXTURES.normal
         local sizes = ns.ComputeSizes(110, db.gap * 110 / db.size)
         local bgc = db.colors.Bg
@@ -383,7 +383,7 @@ local function Build()
         f = CreateFrame("Frame", "WeaponCursorSwingTimerOptions", UIParent, "BasicFrameTemplateWithInset")
     end
     frame = f
-    f:SetSize(748, 560 + (NUM_RINGS - 3) * 42)
+    f:SetSize(748, 606 + (NUM_RINGS - 3) * 42)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     f:SetToplevel(true)
@@ -414,16 +414,17 @@ local function Build()
     rs:SetPoint("TOPLEFT", 16, -58)
 
     -- Darstellung
-    local look = Section(f, L.SEC_LOOK, 354, 282)
+    local look = Section(f, L.SEC_LOOK, 354, 328)
     look:SetPoint("TOPLEFT", rs, "BOTTOMLEFT", 0, -8)
     Slider(look, L.SIZE,     "size",    20, 300, 1,      16, -36,  "%d px", L.SIZE_TIP)
     Slider(look, L.SPACING,  "gap",     0, 20, 1,        16, -82,  "%d px", L.SPACING_TIP)
     Slider(look, L.ALPHA,    "alpha",   0.1, 1, 0.05,    16, -128, "%.2f")
     Slider(look, L.OFFSET_X, "offsetX", -200, 200, 1,    16, -174, "%d", L.OFFSET_X_TIP)
     Slider(look, L.OFFSET_Y, "offsetY", -200, 200, 1,    16, -220, "%d", L.OFFSET_Y_TIP)
+    Slider(look, L.BORDER_SIZE, "borderSize", 1, 5, 1,   16, -266, "%d / 5", L.BORDER_SIZE_TIP)
 
     -- Allgemein
-    local gen = Section(f, L.SEC_GENERAL, 354, 282)
+    local gen = Section(f, L.SEC_GENERAL, 354, 328)
     gen:SetPoint("TOPLEFT", look, "TOPRIGHT", 8, 0)
 
     local th = gen:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
