@@ -15,8 +15,12 @@ ns.TEXTURES = {
     thick  = PATH .. "Ring_thick",
 }
 
+ns.ARROW_TEXTURE = PATH .. "Arrow"
+
+-- Feste Symbole fuer die Ringe (unabhaengig von Klasse und Ausruestung).
+-- Es geht ein Pfad oder eine FileID (Zahl).
 ns.RING_INFO = {
-    Main   = { name = L.RING_MAIN,    slot = 16, icon = "Interface\\Icons\\INV_Sword_04" },
+    Main   = { name = L.RING_MAIN,    slot = 16, icon = 132400 },
     Off    = { name = L.RING_OFF,     slot = 17, icon = "Interface\\Icons\\INV_Shield_04" },
     Ranged = { name = L.RING_RANGED,  slot = 18, icon = "Interface\\Icons\\INV_Weapon_Bow_07" },
 }

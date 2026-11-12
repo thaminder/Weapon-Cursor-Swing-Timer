@@ -9,7 +9,7 @@
 ## Notes-ptBR: Mostra o temporizador de golpes em anéis no cursor (WoW Forever)
 ## Notes-ruRU: Таймер ударов в виде колец у курсора (WoW Forever)
 ## Author: maui
-## Version: 2.1.0
+## Version: 2.1.1
 ## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
 ## SavedVariables: WeaponCursorSwingTimerDB
 ## SavedVariablesPerCharacter: WeaponCursorSwingTimerCharDB

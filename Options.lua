@@ -219,14 +219,25 @@ local function ArrowButton(parent, dir, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(24, 20)
     b:SetText("")
+    -- eigene, exakt zentrierte Pfeilgrafik (Down = vertikal gespiegelt)
     local tex = b:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(14, 14)
-    tex:SetTexture("Interface\\Buttons\\Arrow-" .. dir .. "-Up")
-    if dir == "Up" then tex:SetPoint("CENTER", 0, -3) else tex:SetPoint("CENTER", 0, 3) end
+    tex:SetSize(12, 12)
+    tex:SetPoint("CENTER")
+    tex:SetTexture(ns.ARROW_TEXTURE)
+    if dir == "Down" then tex:SetTexCoord(0, 1, 1, 0) end
+    local function color(enabled)
+        if enabled then tex:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
+        else tex:SetVertexColor(0.5, 0.5, 0.5, 0.6) end
+    end
+    color(true)
     b.icon = tex
     b:SetScript("OnClick", onClick)
-    b:HookScript("OnDisable", function() tex:SetDesaturated(true); tex:SetAlpha(0.4) end)
-    b:HookScript("OnEnable",  function() tex:SetDesaturated(false); tex:SetAlpha(1) end)
+    b:HookScript("OnDisable", function() color(false) end)
+    b:HookScript("OnEnable",  function() color(true) end)
+    b:HookScript("OnMouseDown", function(self)
+        if self:IsEnabled() then tex:SetPoint("CENTER", 1, -1) end
+    end)
+    b:HookScript("OnMouseUp", function() tex:SetPoint("CENTER", 0, 0) end)
     Tooltip(b, dir == "Up" and L.MOVE_OUT or L.MOVE_IN)
     return b
 end
@@ -289,7 +300,7 @@ local function BuildRingSection(parent)
             row.key = ns.cdb.order[i]
             local info = ns.RING_INFO[row.key]
             local c = ns.db.colors[row.key]
-            icon:SetTexture(GetInventoryItemTexture("player", info.slot) or info.icon)
+            icon:SetTexture(info.icon) -- feste Symbole, unabhaengig von Klasse/Ausruestung
             name:SetText(info.name)
             name:SetTextColor(c.r, c.g, c.b)
             local shown = ns.cdb.show[row.key]
