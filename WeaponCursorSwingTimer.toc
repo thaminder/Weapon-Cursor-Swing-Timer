@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: Weapon Cursor Swing Timer
+## Notes: Shows your swing timer as rings around the mouse cursor (WoW Forever)
+## Notes-deDE: Zeigt den Swing-Timer als Ringe am Mauszeiger (WoW Forever)
+## Notes-frFR: Affiche le délai d'attaque en anneaux autour du curseur (WoW Forever)
+## Notes-esES: Muestra el temporizador de golpes en anillos junto al cursor (WoW Forever)
+## Notes-esMX: Muestra el temporizador de golpes en anillos junto al cursor (WoW Forever)
+## Notes-itIT: Mostra il timer dei colpi ad anelli sul cursore (WoW Forever)
+## Notes-ptBR: Mostra o temporizador de golpes em anéis no cursor (WoW Forever)
+## Notes-ruRU: Таймер ударов в виде колец у курсора (WoW Forever)
+## Author: maui
+## Version: 2.1.0
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## SavedVariables: WeaponCursorSwingTimerDB
+## SavedVariablesPerCharacter: WeaponCursorSwingTimerCharDB
+
+Locales.lua
+WeaponCursorSwingTimer.lua
+Options.lua
